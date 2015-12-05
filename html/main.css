@@ -1,0 +1,18 @@
+.row {
+    /*border: 1px solid red;*/
+    padding: 0;
+    height: 27px;
+}
+
+.cell {
+    width: 25px;
+    height: 25px;
+    border: 1px solid grey;
+    background-color: green;
+    margin-bottom: 1px;
+    display: inline-block;
+}
+
+.cell:hover {
+    border: 1px solid yellow;
+}
