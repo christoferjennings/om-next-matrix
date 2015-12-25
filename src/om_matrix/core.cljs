@@ -38,3 +38,50 @@
 
 (main)
 (println "Hello worldxxxx!")
+
+;; ------------------------ scratch -------------
+
+(def init-state
+  {:board [[1 2]
+           [3 4]]})
+
+(defmulti read om/dispatch)
+
+(defmethod read :board
+  [{:keys [state] :as env} key params]
+  {:value (key state)})
+
+(defmethod read :default
+  [{:keys [state] :as env} key params]
+  {:value {:value (str "no-value-for-key: " key)}})
+
+(defui Cell
+  static om/Ident
+  (ident [this props]
+         [:board/cell])
+  static om/IQuery
+  (query [this]
+         `[:cell])
+  Object
+  (render [this]
+          (dom/div nil "cell")))
+
+(def cell (om/factory Cell))
+;(cell)
+
+(defui Board
+  static om/IQuery
+  (query [this]
+         (let [subquery (om/get-query Cell)]
+           `[{:board ~subquery}])))
+
+(def board (om/factory Board))
+
+
+(def norm-d (om/tree->db Board init-state true))
+norm-d
+
+(def parser2 (om/parser {:read read}))
+(parser {:state (atom norm-d)} '[:board])
+
+(om/get-query Cell)
