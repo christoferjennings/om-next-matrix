@@ -10,8 +10,7 @@
                  [org.clojure/tools.nrepl "0.2.12"   :scope "test"]
                  [adzerk/boot-reload    "0.4.2"]
                  [pandeiro/boot-http    "0.6.3"      :scope "test"]
-                 [org.omcljs/om         "1.0.0-alpha24"]
-                 [sablono               "0.4.0"]])
+                 [org.omcljs/om         "1.0.0-alpha28"]])
 
 (require '[adzerk.boot-cljs      :refer [cljs]]
          '[adzerk.boot-cljs-repl :refer [cljs-repl start-repl]]
