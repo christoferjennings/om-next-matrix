@@ -1,7 +1,8 @@
 (ns om-matrix.core
   (:require [goog.dom :as gdom]
             [om.next :as om :refer-macros [defui]]
-            [om.dom :as dom]))
+            [om.dom :as dom]
+            [cljs.pprint    :refer [pprint]]))
 
 (enable-console-print!)
 
