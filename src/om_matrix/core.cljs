@@ -33,16 +33,16 @@
   (om/reconciler {:state app-state}))
 
 (defn main []
-  (println "main ---------------------------------")
+  (println " counter main ---------------------------------")
   (om/add-root! reconciler
                 Counter (gdom/getElement "app")))
 
 (main)
-(println "Hello worldxxxx!")
+
 
 ;; ------------------------ scratch -------------
 
-(def state-matrix
+(def state-matrix-db
   {:matrix [[:row 1]
             [:row 2]]
    :row {1 [[:cell 1] [:cell 2]]
