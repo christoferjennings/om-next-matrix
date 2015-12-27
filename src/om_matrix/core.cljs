@@ -115,3 +115,38 @@
                 Matrix (gdom/getElement "scratch")))
 
 (main-matrix)
+
+;; ------------------------------------------------------------------------------------
+(def init-data
+  {:list/one [{:name "John" :points 0}
+              {:name "Mary" :points 0}
+              {:name "Bob"  :points 0}]
+   :list/two [{:name "Mary" :points 0 :age 27}
+              {:name "Gwen" :points 0}
+              {:name "Jeff" :points 0}]})
+
+
+;; ------------------------------------------------------------------------------------
+(def peops
+  {:new-person "",
+   :last-error "",
+   :widget     {:people [{:person/name "Joe" :db/id 1 :person/mate {:person/name "Sally" :db/id 2}}
+                         {:person/name "Sally" :db/id 2 :person/mate {:person/name "Joe" :db/id 1}}]}})
+
+(def root-q
+  [:new-person :last-error {:widget [{:people [:db/id :person/name {:person/mate [:person/name]}]}]}])
+
+
+(defui Person
+  static om/IQuery
+  (query [this]
+         [:db/id
+          :person/name
+          {:person/mate [:person/name]}]))
+
+(defui Root
+  static om/IQuery
+  (query [this]
+         `[:new-person
+           :last-error
+           {:widget [{:people ~(om/get-query Person)}]}]))
