@@ -42,98 +42,97 @@
 
 ;; ------------------------ scratch -------------
 
-(def state-matrix-db
-  {:matrix [[:row 1]
-            [:row 2]]
-   :row {1 [[:cell 1] [:cell 2]]
-         2 [[:cell 3] [:cell 4]]}
-   :cell {1 {:id 1 :state :x}
-          2 {:id 2 :state :o}
-          3 {:id 3 :state :x}
-          4 {:id 4 :state :o}}})
-
-(def state-matrix-simple
-  {:matrix [[{:id 1 :state :x} {:id 2 :state :o}]
-            [{:id 3 :state :x} {:id 4 :state :o}]]})
+(def state-matrix-tree
+  {:matrix {:rows [{:row/id 0
+                    :cells [{:cell/id 0 :state :a} {:cell/id 1 :state :b}]}
+                   {:row/id 1
+                    :cells [{:cell/id 2 :state :c} {:cell/id 3 :state :d}]}]}})
 
 (defui Cell
   static om/Ident
   (ident [this props]
-         (let [id (:id props)]
-           (println "Cell.ident: id: " id)
-           `[:cell ~id]))
+         (let [id (:cell/id props)]
+           (println "Cell.ident:: id: " id)
+           `[:cell/id ~id]))
   static om/IQuery
   (query [this]
-         [:id :state])
+         [:cell/id :state])
   Object
   (render [this]
+          (println "Cell.render:: props: " (om/props this))
           (let [{:keys [id state] :as datum} (om/props this)]
-            (println "Cell: " (om/props this))
             (dom/div #js {:className "cell"} (name state)))))
 
-(def cell (om/factory Cell {:keyfn :id}))
+(def cell (om/factory Cell {:keyfn :cell/id}))
 
 (defui Row
   static om/Ident
   (ident [this props]
-         (let [id (:id props)]
-           (println "Row.ident: id: " id)
+         (let [id (:row/id props)]
+           (println "Row.ident:: id: " id)
            `[:row ~id]))
   static om/IQuery
   (query [this]
-         `[{:cell ~(om/get-query Cell)}])
+         `[{:cells ~(om/get-query Cell)}])
   Object
   (render [this]
-          (let [{:keys [row-id state]} (om/props this)
-                row (:row state)
-                cell-links (get row row-id)
-                cell-ids (map second cell-links)
-                cell-data (map (fn [id] (get (:cell state) id)) cell-ids)]
-            (println "Row: " (om/props this))
-            ;; (println "Row: row-id: " row-id)
-            ;; (println "Row: row: " row)
-            ;; (println "Row: cell-links: " cell-links)
-            ;; (println "Row: cell-ids: " cell-ids)
+          (println "Row.render:: props: " (om/props this))
+          (let [{:keys [cells] :as props} (om/props this)]
             (dom/div #js {:className "row"}
-                     (map cell cell-data)
-                     ))))
+                     (map cell cells)))))
 
 
-(def row (om/factory Row {:keyfn :row-id}))
+(def row (om/factory Row {:keyfn :row/id}))
+
+(declare reconciler-matrix)
 
 (defui Matrix
   static om/Ident
   (ident [this props]
-         (println "Matrix.ident: props: " (pprint props))
+         (println "Matrix.ident:: props: " (pprint props))
          [:matrix])
   static om/IQuery
   (query [this]
-         `[{:matrix [{:row ~(om/get-query Row)}]}])
+         `[{:matrix [{:rows ~(om/get-query Row)}]}])
   Object
   (render [this]
-          (let [{:keys [matrix] :as state} (om/props this)]
-            (println "Matrix.render:: props: " (om/props this))
-            (dom/div #js {:className "matrix"}
-                     (map #(row {:row-id (second %) ; <- the row state is weird, second gets the id
-                                 :state state})
-                          matrix)))))
+          (println "Matrix.render:: props: " (om/props this))
+          (let [{:keys [matrix] :as state} (om/props this)
+                rows (:rows matrix)]
+            (dom/div nil
+                     (dom/div #js {:className "matrix"}
+                              (map row rows))
+                     (dom/button
+                      #js {:onClick
+                           (fn [e]
+                             (om/transact! reconciler-matrix
+                                           `[(game/move {})
+                                             :matrix]))}
+                      "Click me!")))))
 
 
 (def matrix (om/factory Matrix))
 
 (defn read-matrix [{:keys [state] :as env} key params]
+  (println :--------------------------------------------------)
+  (println "read:: key: " key " || state: " state " || params: " params)
   (let [st @state]
     (if-let [[_ value] (find st key)]
-      (do
-        (println "read:: key: " key " || state: " state " || params: " params)
-        {:value value})
+      {:value value}
       {:value :not-found})))
 
+
+(defn mutate-matrix [{:keys [state] :as env} key params]
+  (let [row-id (rand-int 2)
+        cell-id (rand-int 2)
+        val (keyword (char (+ 98 (rand-int 10))))
+        state' (update-in @state [:matrix :rows row-id :cells cell-id :state] (fn [] val))]
+    {:action #(reset! state state')}))
+
 (def reconciler-matrix
-  (om/reconciler {
-                  ;;:state (atom state-matrix-db)
-                  :state (atom state-matrix-tree)
-                  :parser (om/parser {:read read-matrix})}))
+  (om/reconciler {:state (atom state-matrix-tree)
+                  :parser (om/parser {:read read-matrix
+                                      :mutate mutate-matrix})}))
 
 (defn main-matrix []
   (println "main-matrix ---------------------------------")
