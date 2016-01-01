@@ -138,9 +138,9 @@
                       #js {:onClick
                            (fn [e]
                              (om/transact! reconciler
-                                           `[(game/move {})
+                                           `[(matrix/change {})
                                              :matrix]))}
-                      "Click me!")))))
+                      "Mutate!")))))
 
 
 (def matrix (om/factory Matrix))
@@ -150,5 +150,3 @@
   (om/add-root! reconciler
                 Matrix
                 (gdom/getElement "app")))
-
-(main)
