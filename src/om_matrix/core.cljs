@@ -6,54 +6,87 @@
 
 (enable-console-print!)
 
-(def app-state (atom {:count 0}))
+(def
+  ^{:doc "This is what I want for the raw matrix."}
+  state-matrix-raw
+  {:matrix [[:a :b]
+            [:c :d]]})
 
-(defui Counter
-  Object
-  (render [this]
-          (let [{:keys [count]} (om/props this)]
-            (dom/div nil
-                     (dom/span nil (str "Count: " count))
-                     (dom/button
-                      #js {:onClick
-                           (fn [e]
-                             (swap! app-state update-in [:count] inc))}
-                      "Click me!")))))
+(def
+  ^{:doc "I think this is needed as an intermediate state so the cells have ids."}
+  state-matrix-intermediate
+  {:matrix [[{:cell/id 0 :state :a} {:cell/id 1 :state :b}]
+            [{:cell/id 2 :state :c} {:cell/id 3 :state :d}]]})
 
-(defn read
-  [{:keys [state] :as env} key params]
-  (let [st @state]
-    (if-let [[_ v] (find st key)]
-      {:value v}
-      {:value :not-found})))
+(def
+  ^{:doc "I think the db version of the matrix could be."}
+  state-matrix-db
+  {:matrix [[[:cell/by-id 0] [:cell/by-id 1]]
+            [[:cell/by-id 2] [:cell/by-id 3]]]
+   :cell/by-id {0 {:id 0 :state :a}
+                1 {:id 1 :state :b}
+                2 {:id 2 :state :c}
+                3 {:id 3 :state :d}}})
 
-(def parser (om.next/parser {:read read}))
+(def
+  ^{:doc "Can the db have vectors as 'compound ids'?."}
+  state-matrix-db-compound-ids
+  {:matrix [[[:cell/by-id [0 0]] [:cell/by-id [0 1]]]
+            [[:cell/by-id [1 0]] [:cell/by-id [1 1]]]]
+   :cell/by-id {[0 0] {:id [0 0] :state :a}
+                [0 1] {:id [0 1] :state :b}
+                [1 0] {:id [1 0] :state :c}
+                [1 1] {:id [1 1] :state :d}}})
 
-(def reconciler
-  (om/reconciler {:state app-state}))
-
-(defn main []
-  (println " counter main ---------------------------------")
-  (om/add-root! reconciler
-                Counter (gdom/getElement "app")))
-
-(main)
-
-
-;; ------------------------ scratch -------------
-
-(def state-matrix-tree
+(def
+  ^{:doc "This is the state used for now. But the mutate doesn't have any way
+          to reference the cells on their own so the whole matrix has to re-render"}
+  state-matrix-tree
   {:matrix {:rows [{:row/id 0
                     :cells [{:cell/id 0 :state :a} {:cell/id 1 :state :b}]}
                    {:row/id 1
                     :cells [{:cell/id 2 :state :c} {:cell/id 3 :state :d}]}]}})
 
+(defn read
+  "This is taken straight from the om.next quick start.
+   I'm pretty sure the final version will need custom readers
+   but so far I haven't got them to work either, so this is
+   the simplest 'fail' :)"
+  [{:keys [state] :as env} key params]
+  (println :--------------------------------------------------)
+  (println "read:: key: " key " || state: " state " || params: " params)
+  (let [st @state]
+    (if-let [[_ value] (find st key)]
+      {:value value}
+      {:value :not-found})))
+
+(defn mutate
+  "Randomly mutate the matrix so that one of the cells gets a new value."
+  [{:keys [state] :as env} key params]
+  (let [row-id (rand-int 2)
+        cell-id (rand-int 2)
+        key [:matrix :rows row-id :cells cell-id :state]
+        current-val (get-in @state key)
+        val (keyword (char (+ 98 (rand-int 20))))
+        state' (update-in @state key (fn [] val))]
+    (if (not (= val current-val))
+      {:action #(reset! state state')}
+      (mutate env key params))))
+
+(def parser (om/parser {:read read
+                               :mutate mutate}))
+
+(def reconciler
+  (om/reconciler {:state (atom state-matrix-tree)
+                  :parser parser}))
+
 (defui Cell
-  static om/Ident
-  (ident [this props]
-         (let [id (:cell/id props)]
-           (println "Cell.ident:: id: " id)
-           `[:cell/id ~id]))
+  ;; ;; Ident doesn't affect anything yet. This is just my best guess so far.
+  ;; static om/Ident
+  ;; (ident [this props]
+  ;;        (let [id (:cell/id props)]
+  ;;          (println "Cell.ident:: id: " id)
+  ;;          `[:cell/id ~id]))
   static om/IQuery
   (query [this]
          [:cell/id :state])
@@ -66,11 +99,12 @@
 (def cell (om/factory Cell {:keyfn :cell/id}))
 
 (defui Row
-  static om/Ident
-  (ident [this props]
-         (let [id (:row/id props)]
-           (println "Row.ident:: id: " id)
-           `[:row ~id]))
+  ;; ;; Ident doesn't affect anything yet. This is just my best guess so far.
+  ;; static om/Ident
+  ;; (ident [this props]
+  ;;        (let [id (:row/id props)]
+  ;;          (println "Row.ident:: id: " id)
+  ;;          `[:row ~id]))
   static om/IQuery
   (query [this]
          `[{:cells ~(om/get-query Cell)}])
@@ -81,16 +115,14 @@
             (dom/div #js {:className "row"}
                      (map cell cells)))))
 
-
 (def row (om/factory Row {:keyfn :row/id}))
 
-(declare reconciler-matrix)
-
 (defui Matrix
-  static om/Ident
-  (ident [this props]
-         (println "Matrix.ident:: props: " (pprint props))
-         [:matrix])
+  ;; ;; Ident doesn't affect anything yet. This is just my best guess so far.
+  ;; static om/Ident
+  ;; (ident [this props]
+  ;;        (println "Matrix.ident:: props: " (pprint props))
+  ;;        [:matrix])
   static om/IQuery
   (query [this]
          `[{:matrix [{:rows ~(om/get-query Row)}]}])
@@ -105,7 +137,7 @@
                      (dom/button
                       #js {:onClick
                            (fn [e]
-                             (om/transact! reconciler-matrix
+                             (om/transact! reconciler
                                            `[(game/move {})
                                              :matrix]))}
                       "Click me!")))))
@@ -113,31 +145,97 @@
 
 (def matrix (om/factory Matrix))
 
-(defn read-matrix [{:keys [state] :as env} key params]
-  (println :--------------------------------------------------)
-  (println "read:: key: " key " || state: " state " || params: " params)
+(defn main []
+  (println "main ---------------------------------")
+  (om/add-root! reconciler
+                Matrix
+                (gdom/getElement "scratch")))
+
+(main)
+
+
+;; ---- experiments --------------
+
+(def st
+  {:a1
+   {:b1 [{:db/id 31 :val :c1}
+         {:db/id 32 :val :c2}]}})
+
+(def st-db
+  {:a1 {:b1 [[:c/by-id 31]
+             [:c/by-id 32]]}
+   :c/by-id {31 {:db/id 31 :c/val :c1}
+             32 {:db/id 32 :c/val :c2}}})
+
+(def st-reconciler
+  (om/reconciler {:state state-matrix-db
+                  :parser parser}))
+
+;; --- experiments ---------------------------------------------------
+
+(def mx {:mx [[:a :b]
+              [:c :d]]})
+
+(defmulti readmx om/dispatch)
+
+(defmethod readmx :cell
+  [{:keys [query-root state] :as env} key {:keys [r c] :as  params}]
+  (println :---readmx-cell-----------------------------------------------)
+  (println "readmx:: key: " key " || state: " state " || params: " params)
+  (let [brd (:matrix @state)
+        val (get-in brd [r c])]
+    (println "readmx.cell r c = " r c " -- val = " val)
+    (if val
+      {:value val}
+      {:value :no-val})))
+
+(defmethod readmx :matrix
+  [{:keys [state] :as env} key params]
+  (println :---readmx-matrix-----------------------------------------------)
+  (println "readmx:: key: " key " || state: " state " || params: " params)
+  (println "readmx :matrix :: params: " params)
+  (println "readmx :cell :: keys env: " (keys env))
+  (let [st @state]
+    (if-let [brd (key st)]
+      {:value brd}
+      {:value :matrix-not-found})))
+
+(defmethod readmx :default
+  [{:keys [state] :as env} key params]
+  (println :---readmx-default-----------------------------------------------)
+  (println "readmx:: key: " key " || state: " state " || params: " params)
   (let [st @state]
     (if-let [[_ value] (find st key)]
       {:value value}
       {:value :not-found})))
 
+(def parsermx
+  (om/parser {:read readmx}))
 
-(defn mutate-matrix [{:keys [state] :as env} key params]
-  (let [row-id (rand-int 2)
-        cell-id (rand-int 2)
-        val (keyword (char (+ 98 (rand-int 10))))
-        state' (update-in @state [:matrix :rows row-id :cells cell-id :state] (fn [] val))]
-    {:action #(reset! state state')}))
+(def reconcilermx
+  (om/reconciler {:state mx
+                  :parser parsermx}))
 
-(def reconciler-matrix
-  (om/reconciler {:state (atom state-matrix-tree)
-                  :parser (om/parser {:read read-matrix
-                                      :mutate mutate-matrix})}))
+(defui Cellmx
+  static om/Ident
+  (ident [this
+          {:keys [r c] :as props}]
+         `[:cell/by-coord [~r ~c]])
+  static om/IQuery
+  (query [this]
+         [:cell/by-coord]))
 
-(defn main-matrix []
-  (println "main-matrix ---------------------------------")
-  (om/add-root! reconciler-matrix
-                Matrix
-                (gdom/getElement "scratch")))
+(def cellmx (om/factory Cellmx))
 
-(main-matrix)
+(defui Rootmx
+  static om/IQuery
+  (query [this]
+         `[{:mx [~(om/get-query Cellmx)]}]))
+
+'(om/get-query Rootmx)
+'(om/get-ident Cellmx)
+
+(om/tree->db Rootmx mx true)
+;;=> {:mx [[:a :b] [:c :d]], :om.next/tables #{}}
+
+'(om/db->tree )
