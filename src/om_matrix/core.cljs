@@ -149,7 +149,7 @@
   (println "main ---------------------------------")
   (om/add-root! reconciler
                 Matrix
-                (gdom/getElement "scratch")))
+                (gdom/getElement "app")))
 
 (main)
 
